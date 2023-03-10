@@ -16,8 +16,12 @@ import android.util.Log;
 import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+
 import edu.ucsd.cse110.sharednotes.R;
 import edu.ucsd.cse110.sharednotes.model.Note;
+import edu.ucsd.cse110.sharednotes.model.NoteAPI;
 import edu.ucsd.cse110.sharednotes.view.NotesAdapter;
 import edu.ucsd.cse110.sharednotes.viewmodel.ListViewModel;
 
@@ -93,7 +97,6 @@ public class ListActivity extends AppCompatActivity {
         //
         // Instead, we do direct by-parameter dependency inversion/injection.
         // This way, it is impossible to call the setup methods in the wrong order.
-
         var viewModel = setupViewModel();
         var adapter = setupAdapter(viewModel);
 
