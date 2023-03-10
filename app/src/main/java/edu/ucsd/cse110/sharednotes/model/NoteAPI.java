@@ -142,13 +142,12 @@ public class NoteAPI {
     {
         var executor = Executors.newSingleThreadExecutor();
         var future = executor.submit(() -> put(note));
-
+        while(!future.isDone());
         return future;
     }
 
     public void upsert(Note note){
         Future<Integer> t = putAsync(note);
-        while(!t.isDone());
     }
 
 

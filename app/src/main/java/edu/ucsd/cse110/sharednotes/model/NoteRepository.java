@@ -25,8 +25,6 @@ public class NoteRepository {
 
     private ScheduledFuture<?> clockFuture;
 
-    private MutableLiveData<Note> currentNote;
-
     public NoteRepository(NoteDao dao, NoteAPI api) {
         this.dao = dao; this.api = api;
     }
@@ -52,7 +50,7 @@ public class NoteRepository {
             var ourNote = note.getValue();
             if (theirNote == null) return; // do nothing
             if (ourNote == null || ourNote.version < theirNote.version) {
-                upsertLocal(theirNote);
+                upsertLocal(theirNote, false);
             }
         };
 
@@ -80,9 +78,15 @@ public class NoteRepository {
         return dao.getAll();
     }
 
-    public void upsertLocal(Note note) {
-        note.version++;
+    public void upsertLocal(Note note, boolean incrementVersion) {
+        // We don't want to increment when we sync from the server, just when we save.
+        if (incrementVersion) note.version = note.version + 1;
+        note.version = note.version + 1;
         dao.upsert(note);
+    }
+
+    public void upsertLocal(Note note) {
+        upsertLocal(note, true);
     }
 
     public void deleteLocal(Note note) {
@@ -100,24 +104,27 @@ public class NoteRepository {
         // TODO: Implement getRemote!
         // TODO: Set up polling background thread (MutableLiveData?)
         // TODO: Refer to TimerService from https://github.com/DylanLukes/CSE-110-WI23-Demo5-V2.
-
+        // Start by fetching the note from the server _once_ and feeding it into MutableLiveData.
+        // Then, set up a background thread that will poll the server every 3 seconds.
+        MutableLiveData<Note> note;
+        try {
+            note = new MutableLiveData<Note>(api.getAsync(title).get());
+        } catch (ExecutionException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
         if (!(clockFuture == null) && !clockFuture.isCancelled())
             clockFuture.cancel(true);
         clockFuture = executor.scheduleAtFixedRate(() -> {
-            Future<Note> t = NoteAPI.provide().getAsync(title);
+            Future<Note> t = api.getAsync(title);
             while(!t.isDone());
             try {
-                currentNote.postValue(t.get());
+                note.postValue(t.get());
             } catch (ExecutionException | InterruptedException e) {
-                currentNote.postValue(null);
+                note.postValue(null);
                 Log.d("getRemote", "ERROR");
             }
         }, 0, 3000, TimeUnit.MILLISECONDS);
-
-        return currentNote;
-        // Start by fetching the note from the server _once_ and feeding it into MutableLiveData.
-        // Then, set up a background thread that will poll the server every 3 seconds.
-
+        return note;
         // You may (but don't have to) want to cache the LiveData's for each title, so that
         // you don't create a new polling thread every time you call getRemote with the same title.
         // You don't need to worry about killing background threads.
